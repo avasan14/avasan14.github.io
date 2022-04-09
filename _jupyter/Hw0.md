@@ -1,24 +1,17 @@
----
-layout: post
-title: Homework 0 
----
-
-I will write a tutorial explaining how to construct an interesting data visualization of the Palmer Penguins data set!
-
-## Read in the Penguins data
-We can read the data into `python` by running:
-
 ```python
 import pandas as pd
 url = "https://raw.githubusercontent.com/PhilChodrow/PIC16B/master/datasets/palmer_penguins.csv"
 penguins = pd.read_csv(url)
 ```
-## Understanding the Dataset
-We can view the first *5 rows* of the data in `python` by running:
+
 
 ```python
 penguins.head()
 ```
+
+
+
+
 <div>
 <style scoped>
     .dataframe tbody tr th:only-of-type {
@@ -161,35 +154,45 @@ penguins.head()
 </table>
 </div>
 
-We notice that each row represents an individual penguin. There are many different columns representing measurements and descriptions of each penguin. We will further analyze Flipper Length and Body Mass through our data visualization in the next step. 
 
 
-## Make the Plot
-Then, using `matplotlib`, we create side by side histograms displaying Flipper Length and Body Mass of the penguins, and how they differ between species.
 
-``` python
+```python
+import pandas as pd
+url = "https://raw.githubusercontent.com/PhilChodrow/PIC16B/master/datasets/palmer_penguins.csv"
+penguins = pd.read_csv(url)
+
 from matplotlib import pyplot as plt
-# create the subplots
 fig,ax = plt.subplots(1,2,figsize = (10,4))
-# on plot 1, set the labels for flipper length
 ax[0].set(xlabel = "Flipper Length (mm)",
           ylabel = "Density")
-# on plot 2, set the labels for body mass
 ax[1].set(xlabel = "Body Mass (g)",
           ylabel = "Density")
-# create the histograms
 species = set(penguins['Species'])
 for i in species:
     data = penguins[penguins['Species'] == i]
     ax[0].hist(data['Flipper Length (mm)'],label = i,alpha = 0.5)
     ax[1].hist(data['Body Mass (g)'],label = i,alpha = 0.5)
-# display the legend
 ax[0].legend()
 ax[1].legend()
-# set title for the whole plot
 plt.suptitle('Penguins Density of Flipper Length and Body Mass per Species')
+#plt.savefig("penguins_histogram.png")
 ```
-![Hw0_2_1.png](/images/Hw0_2_1.png)
 
-## Analyzing the Plot
-As seen in the above histograms, there are some clear differences in the general size of the penguins. Specifically, Gentoo penguins are generally larger as the majority of the Gentoo penguins have a heavier body mass and longer flippers. However, there is some clear overlap between Adelie and Chinstrap penguins in regards to both Flipper Length and Body Mass. Thus, more analysis would provide us with a better understanding of the differences between each species of penguin.
+
+
+
+    Text(0.5, 0.98, 'Penguins Density of Flipper Length and Body Mass per Species')
+
+
+
+
+    
+![png](Hw0_files/Hw0_2_1.png)
+    
+
+
+
+```python
+
+```
