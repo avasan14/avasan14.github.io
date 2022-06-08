@@ -80,9 +80,15 @@ Once we completely scraped the website for our data, we performed OCR and Text C
 2. `Type`: The opinion type
 3. `Text`: The cleaned text for the corresponding justice's opinion
 
-Our methodology involved multiple parts. First, we iterated through all the pages in an opinion and stored it as a jpg file. We declared the filename for each page of PDF as JPG and then saved the image of the page in our system. Then, we incremented the counter to update filename accordingly. Here is the code we used for part 1, creating the images:
+Our methodology involved multiple parts. First, we iterated through all the pages in an opinion and stored it as a jpg file. We declared the filename for each page of PDF as JPG and then saved the image of the page in our system. Then, we incremented the counter to update filename accordingly. As we progressed, we added code within this same for loop in order to continue iterating over the pages. 
+
+For part 2, we created a text file to write the output. We did this by opening the file in append mode, then iterating from 1 to the total number of pages. Then, for each page, we recognized the text as a string in image using pytesseract. If the page is a syllabus page or not an opinion page, we skipped and removed the file as there no need to append the text. We made sure to then note down the page was skipped, removed the image, and moved on to next page. Then, we restored sentences by using regex to clean our text further by removing headers and boundaries, and separating the opinions. Finally, we wrote to the text file and removed the image. 
+
+For part 3, we read in the text file and converted the text to our desired data frame. Here is the code for our OCR and text cleaning as well as what the first 10 rows of our final, cleaned data looks like:
 ```python
+# For every opinion PDF (donwloaded from spider)
 for op in [i for i in os.listdir("./opinion_PDFs") if i[-3:] == 'pdf']:
+    
     # *** Part 1 ***
     pages = convert_from_path("./opinion_PDFs/" + op, dpi = 300)
     image_counter = 1
@@ -99,9 +105,86 @@ for op in [i for i in os.listdir("./opinion_PDFs") if i[-3:] == 'pdf']:
         # Increment the counter to update filename
         image_counter = image_counter + 1
     image_counter = image_counter - 1
+    
+    # *** Part 2 ***
+    # Creating a text file to write the output
+    outfile = "./opinion_txt/" + op.split(".")[0] + "_OCR.txt"
+    # Open the file in append mode
+    f = open(outfile, "w")
+    
+    # Iterate from 1 to total number of pages
+    skipped_pages = []
+    print("Starting OCR for " + re.findall('([0-9a-z-]+)_', op)[0])
+    print("Reading page:")
+    for i in range(1, image_counter + 1):
+        print(str(i) + "...") if i==1 or i%10==0 or i==image_counter else None
+        # Set filename to recognize text from
+        filename = "page_" + str(i) + ".jpg"
+        # Recognize the text as string in image using pytesserct
+        text = pytesseract.image_to_string(Image.open(filename))
+        # If the page is a syllabus page or not an opinion page
+        # marked by "Opinion of the Court" or "Last_Name, J. dissenting/concurring"
+        # skip and remove this file; no need to append text
+        is_syllabus = re.search('Syllabus\n', text) is not None
+        is_maj_op = re.search('Opinion of [A-Za-z., ]+\n', text) is not None
+        is_dissent_concur_op = re.search('[A-Z]+, (C. )?J., (concurring|dissenting)?( in judgment)?', text) is not None
+        if is_syllabus or ((not is_maj_op) and (not is_dissent_concur_op)):
+            # note down the page was skipped, remove image, and move on to next page
+            skipped_pages.append(i)
+            os.remove(filename)
+            continue
+        # Restore sentences
+        text = text.replace('-\n', '')
+        # Roman numerals header
+        text = re.sub('[\n]+[A-Za-z]{1,4}\n', '', text)
+        # Remove headers
+        text = re.sub("[\n]+SUPREME COURT OF THE UNITED STATES[\nA-Za-z0-9!'#%&()*+,-.\/\[\]:;<=>?@^_{|}~—’ ]+\[[A-Z][a-z]+ [0-9]+, [0-9]+\][\n]+",
+                  ' ', text)
+        text = re.sub('[^\n]((CHIEF )?JUSTICE ([A-Z]+)[-A-Za-z0-9 ,—\n]+)\.[* ]?[\n]{2}',
+                  '!OP START!\\3!!!\\1!!!', text)
+        text = re.sub('[\n]+', ' ', text) # Get rid of new lines and paragraphs
+        text = re.sub('NOTICE: This opinion is subject to formal revision before publication in the preliminary print of the United States Reports. Readers are requested to noti[f]?y the Reporter of Decisions, Supreme Court of the United States, Washington, D.[ ]?C. [0-9]{5}, of any typographical or other formal errors, in order that corrections may be made before the preliminary print goes to press[\.]?',
+                      '', text)
+        text = re.sub('Cite as: [0-9]+[ ]?U.S.[_]* \([0-9]+\) ([0-9a-z ]+)?(Opinion of the Court )?([A-Z]+,( C.)? J., [a-z]+[ ]?)?',
+                      '', text)
+        text = re.sub(' JUSTICE [A-Z]+ took no part in the consideration or decision of this case[\.]?', '', text)
+        text = re.sub('[0-9]+ [A-Z!&\'(),-.:; ]+ v. [A-Z!&\'(),-.:; ]+ (Opinion of the Court )?(dissenting[ ]?|concurring[ ]?)?',
+                  '', text)
+        # Remove * boundaries
+        text = re.sub('([*][ ]?)+', '', text)
+        # Eliminate "It is so ordered" after every majority opinion
+        text = re.sub(' It is so ordered\. ', '', text)
+        # Eliminate opinion header
+        text = re.sub('Opinion of [A-Z]+, [C. ]?J[\.]?', '', text)
+        # Separate opinions
+        text = re.sub('!OP START!', '\n', text)
+    
+        # Write to text
+        f.write(text)
+    
+        # After everything is done for the page, remove the page image
+        os.remove(filename)
+    # Close connection to .txt file after finishing writing
+    f.close()
+    
+    # Now read in the newly created txt file as a pandas data frame if possible
+    
+    try:
+        op_df = pd.read_csv("./opinion_txt/" + op.split(".")[0] + "_OCR.txt",
+                            sep = re.escape("!!!"), engine = "python",
+                            names = ["Author", "Header", "Text"])
+        op_df.insert(1, "Docket_Number", re.findall("([-a-z0-9 ]+)_", op)[0])
+        op_df["Type"] = op_df.Header.apply(opinion_classifier)
+        
+        # Lastly add all the opinion info to the main data frame
+        opinion_df = opinion_df.append(op_df, ignore_index = True)
+        os.remove("./opinion_PDFs/" + op)
+        print("Task completed\nPages skipped: " + str(skipped_pages) + "\n")
+    except:
+        print("Error in CSV conversion. Pages NOT added!\n")
+        
+print("-----------------------\nAll assigned OCR Completed")
 ```
-
-As we progressed, we added code within this same for loop in order to continue iterating over the pages. For part 2, we created a text file to write the output. We did this by opening the file in append mode, then iterating from 1 to the total number of pages. Then, for each page, we recognized the text as a string in image using pytesseract. If the page is a syllabus page or not an opinion page, we skipped and removed the file as there no need to append the text. We made sure to then note down the page was skipped, removed the image, and moved on to next page. Then, we restored sentences by using regex to clean our text further by removing headers and boundaries, and separating the opinions. Finally, we wrote to the text file and removed the image. For part 3, we read in the text file and converted the text to our desired data frame. Here is what the first 10 rows of our final, cleaned data looks like:
 
   <div id="df-2884948c-c120-4f0a-b532-3df596371ce8">
     <div class="colab-df-container">
