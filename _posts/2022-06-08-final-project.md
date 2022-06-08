@@ -22,12 +22,19 @@ These are some key technical components that I will explain in further detail.
 3. Type and Author Classification: Training the data and Evaluating on Unseen data
 
 ### Web Scraping
-We began by scraping the Supreme Court Opinions Directory which contained pdf links of the Supreme Court opinions from 2021 to 2014. To create the scraper, we made a parse method that used the relevant css selectors and tags to acquire the opinion PDF links for each month of the year. Next we utilized a for loop to index through the list of PDF links and download the PDFs. A second parse method was created to go to the website links of each year and scrape and continue this process of downloading the PDFs. 
+We began by scraping the Supreme Court Opinions Directory which contained pdf links of the Supreme Court opinions from 2021 to 2014. This is what the website looks like:
+
+![scotus_website.png](/images/scotus_website.png)
+
+To create the scraper, we made a parse method that used the relevant css selectors and tags to acquire the opinion PDF links for each month of the year. Next we utilized a for loop to index through the list of PDF links and download the PDFs. A second parse method was created to go to the website links of each year and scrape and continue this process of downloading the PDFs. 
 
 In the settings file, we specified “pdf” to be the document format to save the files as. A download delay was also implemented. Without this, multiple threads will try to write to the csv file at the same time and this will produce a file lock error in the command prompt.
 
-Here is a screenshot of the website that we scraped our data from along with our spider code:
-![scotus_website.png](/images/scotus_website.png)
+Here is a flowchart of our general scraping process:
+
+![scraping_flow.png](/images/scraping_flow.png)
+
+Here is our spider code used for scraping:
 
 ```python
 import scrapy
